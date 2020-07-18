@@ -19,6 +19,7 @@ import (
 	"github.com/gohugoio/hugo/markup/asciidocext/asciidocext_config"
 	"github.com/gohugoio/hugo/markup/blackfriday/blackfriday_config"
 	"github.com/gohugoio/hugo/markup/goldmark/goldmark_config"
+	"github.com/gohugoio/hugo/markup/pandoc/pandoc_config"
 	"github.com/gohugoio/hugo/markup/highlight"
 	"github.com/gohugoio/hugo/markup/tableofcontents"
 	"github.com/gohugoio/hugo/parser"
@@ -37,6 +38,7 @@ type Config struct {
 	// Content renderers
 	Goldmark    goldmark_config.Config
 	BlackFriday blackfriday_config.Config
+	Pandoc pandoc_config.Config
 
 	AsciidocExt asciidocext_config.Config
 }
