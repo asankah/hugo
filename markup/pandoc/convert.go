@@ -15,8 +15,12 @@
 package pandoc
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/cli/safeexec"
 	"github.com/gohugoio/hugo/htesting"
+
 	"github.com/gohugoio/hugo/identity"
 	"github.com/gohugoio/hugo/markup/internal"
 
@@ -60,7 +64,29 @@ func (c *pandocConverter) getPandocContent(src []byte, ctx converter.DocumentCon
 			"                 Leaving pandoc content unrendered.")
 		return src
 	}
+
 	args := []string{"--mathjax"}
+
+	if len(c.cfg.MarkupConfig.Pandoc.Filters) > 0 {
+		for _, filter := range c.cfg.MarkupConfig.Pandoc.Filters {
+			args = append(args, fmt.Sprintf("--filter=%s", filter))
+		}
+	}
+
+	if len(c.cfg.MarkupConfig.Pandoc.Extensions) > 0 {
+		var b strings.Builder
+		b.WriteString("--from=markdown")
+		for _, extension := range c.cfg.MarkupConfig.Pandoc.Extensions {
+			b.WriteString("+")
+			b.WriteString(extension)
+		}
+		args = append(args, b.String())
+	}
+
+	if len(c.cfg.MarkupConfig.Pandoc.ExtraArgs) > 0 {
+		args = append(args, c.cfg.MarkupConfig.Pandoc.ExtraArgs...)
+	}
+
 	return internal.ExternallyRenderContent(c.cfg, ctx, src, path, args)
 }
 
