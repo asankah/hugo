@@ -15,8 +15,6 @@
 package pandoc
 
 import (
-	"strings"
-	"fmt"
 	"os/exec"
 
 	"github.com/gohugoio/hugo/identity"
@@ -64,29 +62,7 @@ func (c *pandocConverter) getPandocContent(src []byte, ctx converter.DocumentCon
 		return src
 	}
 
-	args := []string{"--mathjax"}
-
-	if len(c.cfg.MarkupConfig.Pandoc.Filters) > 0 {
-		for _, filter := range c.cfg.MarkupConfig.Pandoc.Filters {
-			args = append(args, fmt.Sprintf("--filter=%s", filter))
-		}
-	}
-
-	if len(c.cfg.MarkupConfig.Pandoc.Extensions) > 0 {
-		var b strings.Builder
-		b.WriteString("--from=markdown")
-		for _, extension := range c.cfg.MarkupConfig.Pandoc.Extensions {
-			b.WriteString("+")
-			b.WriteString(extension)
-		}
-		args = append(args, b.String())
-	}
-
-	if len(c.cfg.MarkupConfig.Pandoc.ExtraArgs) > 0 {
-		args = append(args, c.cfg.MarkupConfig.Pandoc.ExtraArgs...)
-	}
-
-	return internal.ExternallyRenderContent(c.cfg, ctx, src, path, args)
+	return internal.ExternallyRenderContent(c.cfg, ctx, src, path, c.cfg.MarkupConfig.Pandoc.AsPandocArguments())
 }
 
 func getPandocExecPath() string {
