@@ -17,6 +17,7 @@ import (
 	"github.com/gohugoio/hugo/config"
 	"github.com/gohugoio/hugo/docshelper"
 	"github.com/gohugoio/hugo/markup/asciidocext/asciidocext_config"
+	"github.com/gohugoio/hugo/markup/bibliography"
 	"github.com/gohugoio/hugo/markup/blackfriday/blackfriday_config"
 	"github.com/gohugoio/hugo/markup/goldmark/goldmark_config"
 	"github.com/gohugoio/hugo/markup/highlight"
@@ -34,6 +35,7 @@ type Config struct {
 
 	Highlight       highlight.Config
 	TableOfContents tableofcontents.Config
+	Bibliography    bibliography.Config
 
 	// Content renderers
 	Goldmark    goldmark_config.Config
@@ -92,6 +94,7 @@ var Default = Config{
 
 	TableOfContents: tableofcontents.DefaultConfig,
 	Highlight:       highlight.DefaultConfig,
+	Bibliography:    bibliography.Default,
 
 	Goldmark:    goldmark_config.Default,
 	BlackFriday: blackfriday_config.Default,
