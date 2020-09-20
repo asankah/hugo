@@ -62,7 +62,19 @@ func (c *pandocConverter) getPandocContent(src []byte, ctx converter.DocumentCon
 		return src
 	}
 
-	return internal.ExternallyRenderContent(c.cfg, ctx, src, path, c.cfg.MarkupConfig.Pandoc.AsPandocArguments())
+	arguments := c.cfg.MarkupConfig.Pandoc.AsPandocArguments()
+
+	bibliography := c.cfg.MarkupConfig.Bibliography
+
+	if bibliography.Source != "" {
+		arguments = append(arguments, "--bibliography", bibliography.Source)
+	}
+
+	if bibliography.CitationStyle != "" {
+		arguments = append(arguments, "--csl", bibliography.CitationStyle)
+	}
+
+	return internal.ExternallyRenderContent(c.cfg, ctx, src, path, arguments)
 }
 
 func getPandocExecPath() string {
