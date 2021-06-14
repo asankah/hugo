@@ -22,6 +22,8 @@ import (
 	"github.com/gohugoio/hugo/markup/internal"
 
 	"github.com/gohugoio/hugo/markup/converter"
+
+	"path"
 )
 
 // Provider is the package entry point.
@@ -55,8 +57,8 @@ func (c *pandocConverter) Supports(feature identity.Identity) bool {
 // getPandocContent calls pandoc as an external helper to convert pandoc markdown to HTML.
 func (c *pandocConverter) getPandocContent(src []byte, ctx converter.DocumentContext) []byte {
 	logger := c.cfg.Logger
-	path := getPandocExecPath()
-	if path == "" {
+	pandoc_path := getPandocExecPath()
+	if pandoc_path == "" {
 		logger.Println("pandoc not found in $PATH: Please install.\n",
 			"                 Leaving pandoc content unrendered.")
 		return src
@@ -74,7 +76,9 @@ func (c *pandocConverter) getPandocContent(src []byte, ctx converter.DocumentCon
 		arguments = append(arguments, "--csl", bibliography.CitationStyle)
 	}
 
-	return internal.ExternallyRenderContent(c.cfg, ctx, src, path, arguments)
+	arguments = append(arguments, "--resource-path", path.Dir(ctx.Filename))
+
+	return internal.ExternallyRenderContent(c.cfg, ctx, src, pandoc_path, arguments)
 }
 
 func getPandocExecPath() string {
