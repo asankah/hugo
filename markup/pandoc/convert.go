@@ -121,7 +121,7 @@ func (c *pandocConverter) getPandocContent(src []byte) []byte {
 		if err != nil {
 			logger.Errorf("Can't find bibliography: %s", bibConfig.Source)
 		} else {
-			arguments = append(arguments, "--bibliography", sourcePath)
+			arguments = append(arguments, "--citeproc", "--bibliography", sourcePath)
 		}
 	}
 

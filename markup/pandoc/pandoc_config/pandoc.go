@@ -59,6 +59,9 @@ type Config struct {
 	// be specified here.
 	OutputExtensions []string
 
+	// Metadata. The dictionary keys and values are handled in the obvious way.
+	Metadata map[string]interface{}
+
 	// Extra commandline options passed to the pandoc invocation. These options
 	// are appended to the commandline after the format and filter options.
 	// Arguments are passed in literally. Hence must have the "--" or "-" prefix
@@ -111,6 +114,22 @@ func (c *Config) getMathRenderingArg() string {
 	}
 }
 
+func (c *Config) getMetadataArgs() []string {
+	var args []string
+	for k, iv := range c.Metadata {
+		var v string
+		if sv, ok := iv.(string); ok {
+			v = sv
+		} else if sv, ok := iv.(fmt.Stringer); ok {
+			v = sv.String()
+		} else {
+			v = fmt.Sprintf("%v", iv)
+		}
+		args = append(args, fmt.Sprintf("-M%s=%s", k, v))
+	}
+	return args
+}
+
 func (c *Config) getFilterArgs(pathLookup PathNormalizer) []string {
 	var args []string
 	for _, filter := range c.Filters {
@@ -136,6 +155,7 @@ func (c *Config) AsPandocArguments(pathLookup PathNormalizer) []string {
 		c.getOutputArg(),
 		c.getMathRenderingArg()}
 
+	args = append(args, c.getMetadataArgs()...)
 	args = append(args, c.getFilterArgs(pathLookup)...)
 	args = append(args, c.ExtraArgs...)
 
