@@ -15,16 +15,49 @@
 package pandoc
 
 import (
+	"strings"
+
 	"github.com/cli/safeexec"
 	"github.com/gohugoio/hugo/htesting"
+	"github.com/mitchellh/mapstructure"
 
 	"github.com/gohugoio/hugo/identity"
+	"github.com/gohugoio/hugo/markup/bibliography"
 	"github.com/gohugoio/hugo/markup/internal"
+	"github.com/gohugoio/hugo/markup/pandoc/pandoc_config"
 
 	"github.com/gohugoio/hugo/markup/converter"
 
+	"fmt"
+	"os"
 	"path"
 )
+
+type paramer interface {
+	Param(interface{}) (interface{}, error)
+}
+
+type searchPaths struct {
+	Paths []string
+}
+
+func (s *searchPaths) NormalizePath(in_path string) (string, error) {
+	if path.IsAbs(in_path) {
+		return in_path, nil
+	}
+
+	for _, p := range s.Paths {
+		fp := path.Join(p, in_path)
+		if _, err := os.Stat(fp); err == nil {
+			return fp, nil
+		}
+	}
+	return "", fmt.Errorf("Can't find %s", in_path)
+}
+
+func (s *searchPaths) AsResourcePath() string {
+	return strings.Join(s.Paths, ":")
+}
 
 // Provider is the package entry point.
 var Provider converter.ProviderProvider = provider{}
@@ -35,19 +68,19 @@ type provider struct {
 func (p provider) New(cfg converter.ProviderConfig) (converter.Provider, error) {
 	return converter.NewProvider("pandoc", func(ctx converter.DocumentContext) (converter.Converter, error) {
 		return &pandocConverter{
-			ctx: ctx,
-			cfg: cfg,
+			docCtx: ctx,
+			cfg:    cfg,
 		}, nil
 	}), nil
 }
 
 type pandocConverter struct {
-	ctx converter.DocumentContext
-	cfg converter.ProviderConfig
+	docCtx converter.DocumentContext
+	cfg    converter.ProviderConfig
 }
 
 func (c *pandocConverter) Convert(ctx converter.RenderContext) (converter.Result, error) {
-	return converter.Bytes(c.getPandocContent(ctx.Src, c.ctx)), nil
+	return converter.Bytes(c.getPandocContent(ctx.Src)), nil
 }
 
 func (c *pandocConverter) Supports(feature identity.Identity) bool {
@@ -55,7 +88,7 @@ func (c *pandocConverter) Supports(feature identity.Identity) bool {
 }
 
 // getPandocContent calls pandoc as an external helper to convert pandoc markdown to HTML.
-func (c *pandocConverter) getPandocContent(src []byte, ctx converter.DocumentContext) []byte {
+func (c *pandocConverter) getPandocContent(src []byte) []byte {
 	logger := c.cfg.Logger
 	pandoc_path := getPandocExecPath()
 	if pandoc_path == "" {
@@ -64,21 +97,46 @@ func (c *pandocConverter) getPandocContent(src []byte, ctx converter.DocumentCon
 		return src
 	}
 
-	arguments := c.cfg.MarkupConfig.Pandoc.AsPandocArguments()
-
-	bibliography := c.cfg.MarkupConfig.Bibliography
-
-	if bibliography.Source != "" {
-		arguments = append(arguments, "--bibliography", bibliography.Source)
+	searchPathSet := searchPaths{
+		Paths: []string{path.Dir(c.docCtx.Filename), "static", "."},
 	}
 
-	if bibliography.CitationStyle != "" {
-		arguments = append(arguments, "--csl", bibliography.CitationStyle)
+	var pandocConfig pandoc_config.Config = c.cfg.MarkupConfig.Pandoc
+	var bibConfig bibliography.Config = c.cfg.MarkupConfig.Bibliography
+
+	if pageParameters, ok := c.docCtx.Document.(paramer); ok {
+		if bibParam, err := pageParameters.Param("bibliography"); err == nil {
+			mapstructure.WeakDecode(bibParam, &bibConfig)
+		}
+
+		if pandocParam, err := pageParameters.Param("pandoc"); err == nil {
+			mapstructure.WeakDecode(pandocParam, &pandocConfig)
+		}
 	}
 
-	arguments = append(arguments, "--resource-path", path.Dir(ctx.Filename))
+	arguments := pandocConfig.AsPandocArguments(&searchPathSet)
 
-	return internal.ExternallyRenderContent(c.cfg, ctx, src, pandoc_path, arguments)
+	if bibConfig.Source != "" {
+		sourcePath, err := searchPathSet.NormalizePath(bibConfig.Source)
+		if err != nil {
+			logger.Errorf("Can't find bibliography: %s", bibConfig.Source)
+		} else {
+			arguments = append(arguments, "--bibliography", sourcePath)
+		}
+	}
+
+	if bibConfig.CitationStyle != "" {
+		citationPath, err := searchPathSet.NormalizePath(bibConfig.CitationStyle)
+		if err != nil {
+			logger.Errorf("Can't find citation style: %s", bibConfig.CitationStyle)
+		} else {
+			arguments = append(arguments, "--csl", citationPath)
+		}
+	}
+
+	arguments = append(arguments, "--resource-path", searchPathSet.AsResourcePath())
+
+	return internal.ExternallyRenderContent(c.cfg, c.docCtx, src, pandoc_path, arguments)
 }
 
 func getPandocExecPath() string {

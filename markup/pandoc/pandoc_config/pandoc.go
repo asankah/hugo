@@ -35,9 +35,11 @@ type Config struct {
 	// See https://pandoc.org/MANUAL.html#math-rendering-in-html
 	UseKatex bool
 
-	// List of filters to use. These translate to '--filter=' arguments to the
-	// pandoc invocation.  The order of elements in `Filters` is preserved when
-	// constructing the `pandoc` commandline.
+	// List of filters to use. These translate to '--filter=' or '--lua-filter'
+	// arguments to the pandoc invocation.  The order of elements in `Filters`
+	// is preserved when constructing the `pandoc` commandline.
+	//
+	// Use the prefix 'lua:' or the suffix '.lua' to indicate Lua filters.
 	Filters []string
 
 	// List of Pandoc Markdown extensions to use. No need to include default
@@ -109,10 +111,18 @@ func (c *Config) getMathRenderingArg() string {
 	}
 }
 
-func (c *Config) getFilterArgs() []string {
+func (c *Config) getFilterArgs(pathLookup PathNormalizer) []string {
 	var args []string
 	for _, filter := range c.Filters {
-		args = append(args, fmt.Sprintf("--filter=%s", filter))
+		filterPath, err := pathLookup.NormalizePath(filter)
+		if err != nil {
+			continue
+		}
+		if strings.HasPrefix(filterPath, "lua:") || strings.HasSuffix(filterPath, ".lua") {
+			args = append(args, fmt.Sprintf("--lua-filter=%s", strings.TrimPrefix(filterPath, "lua:")))
+		} else {
+			args = append(args, fmt.Sprintf("--filter=%s", filterPath))
+		}
 	}
 	return args
 }
@@ -120,14 +130,18 @@ func (c *Config) getFilterArgs() []string {
 // AsPandocArguments returns a list of strings that can be used as arguments to
 // a "pandoc" invocation. All the settings contained in Config are represented
 // in the returned list of arguments.
-func (c *Config) AsPandocArguments() []string {
+func (c *Config) AsPandocArguments(pathLookup PathNormalizer) []string {
 	args := []string{
 		c.getInputArg(),
 		c.getOutputArg(),
 		c.getMathRenderingArg()}
 
-	args = append(args, c.getFilterArgs()...)
+	args = append(args, c.getFilterArgs(pathLookup)...)
 	args = append(args, c.ExtraArgs...)
 
 	return args
+}
+
+type PathNormalizer interface {
+	NormalizePath(string) (string, error)
 }
