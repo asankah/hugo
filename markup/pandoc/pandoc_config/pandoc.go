@@ -130,13 +130,9 @@ func (c *Config) getMetadataArgs() []string {
 	return args
 }
 
-func (c *Config) getFilterArgs(pathLookup PathNormalizer) []string {
+func (c *Config) getFilterArgs() []string {
 	var args []string
-	for _, filter := range c.Filters {
-		filterPath, err := pathLookup.NormalizePath(filter)
-		if err != nil {
-			continue
-		}
+	for _, filterPath := range c.Filters {
 		if strings.HasPrefix(filterPath, "lua:") || strings.HasSuffix(filterPath, ".lua") {
 			args = append(args, fmt.Sprintf("--lua-filter=%s", strings.TrimPrefix(filterPath, "lua:")))
 		} else {
@@ -149,19 +145,15 @@ func (c *Config) getFilterArgs(pathLookup PathNormalizer) []string {
 // AsPandocArguments returns a list of strings that can be used as arguments to
 // a "pandoc" invocation. All the settings contained in Config are represented
 // in the returned list of arguments.
-func (c *Config) AsPandocArguments(pathLookup PathNormalizer) []string {
+func (c *Config) AsPandocArguments() []string {
 	args := []string{
 		c.getInputArg(),
 		c.getOutputArg(),
 		c.getMathRenderingArg()}
 
 	args = append(args, c.getMetadataArgs()...)
-	args = append(args, c.getFilterArgs(pathLookup)...)
+	args = append(args, c.getFilterArgs()...)
 	args = append(args, c.ExtraArgs...)
 
 	return args
-}
-
-type PathNormalizer interface {
-	NormalizePath(string) (string, error)
 }

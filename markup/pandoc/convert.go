@@ -28,8 +28,6 @@ import (
 
 	"github.com/gohugoio/hugo/markup/converter"
 
-	"fmt"
-	"os"
 	"path"
 )
 
@@ -39,20 +37,6 @@ type paramer interface {
 
 type searchPaths struct {
 	Paths []string
-}
-
-func (s *searchPaths) NormalizePath(in_path string) (string, error) {
-	if path.IsAbs(in_path) {
-		return in_path, nil
-	}
-
-	for _, p := range s.Paths {
-		fp := path.Join(p, in_path)
-		if _, err := os.Stat(fp); err == nil {
-			return fp, nil
-		}
-	}
-	return "", fmt.Errorf("Can't find %s", in_path)
 }
 
 func (s *searchPaths) AsResourcePath() string {
@@ -97,10 +81,6 @@ func (c *pandocConverter) getPandocContent(src []byte) []byte {
 		return src
 	}
 
-	searchPathSet := searchPaths{
-		Paths: []string{path.Dir(c.docCtx.Filename), "static", "."},
-	}
-
 	var pandocConfig pandoc_config.Config = c.cfg.MarkupConfig.Pandoc
 	var bibConfig bibliography.Config = c.cfg.MarkupConfig.Bibliography
 
@@ -114,27 +94,17 @@ func (c *pandocConverter) getPandocContent(src []byte) []byte {
 		}
 	}
 
-	arguments := pandocConfig.AsPandocArguments(&searchPathSet)
+	arguments := pandocConfig.AsPandocArguments()
 
 	if bibConfig.Source != "" {
-		sourcePath, err := searchPathSet.NormalizePath(bibConfig.Source)
-		if err != nil {
-			logger.Errorf("Can't find bibliography: %s", bibConfig.Source)
-		} else {
-			arguments = append(arguments, "--citeproc", "--bibliography", sourcePath)
+		arguments = append(arguments, "--citeproc", "--bibliography", bibConfig.Source)
+		if bibConfig.CitationStyle != "" {
+			arguments = append(arguments, "--csl", bibConfig.CitationStyle)
 		}
 	}
 
-	if bibConfig.CitationStyle != "" {
-		citationPath, err := searchPathSet.NormalizePath(bibConfig.CitationStyle)
-		if err != nil {
-			logger.Errorf("Can't find citation style: %s", bibConfig.CitationStyle)
-		} else {
-			arguments = append(arguments, "--csl", citationPath)
-		}
-	}
-
-	arguments = append(arguments, "--resource-path", searchPathSet.AsResourcePath())
+	resourcePath := strings.Join([]string{path.Dir(c.docCtx.Filename), "static", "."}, ":")
+	arguments = append(arguments, "--resource-path", resourcePath)
 
 	return internal.ExternallyRenderContent(c.cfg, c.docCtx, src, pandoc_path, arguments)
 }
